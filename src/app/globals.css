@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdfcf9; /* 소프트 베이지 */
+  --foreground: #2d3748; /* 편안한 다크 그레이 */
 }
 
 @theme inline {
@@ -10,17 +10,71 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Custom Nature Colors */
+  --color-forest-50: #f2f8f5;
+  --color-forest-500: #4caf50;
+  --color-forest-700: #2e7d32;
+  --color-forest-900: #1b5e20;
+  --color-olive-100: #f4f5f0;
+  --color-olive-500: #8c9c5d;
+  --color-beige-50: #fdfcf9;
+  --color-beige-100: #f5f3e9;
+  --color-mint-50: #eafbf6;
+  --color-mint-100: #ccf6e8;
+  --color-mint-500: #1ab08e;
+  --color-mint-600: #159678;
+  --color-mint-700: #10755f;
+
+  /* Animations */
+  --animate-waterdrop-bounce: waterdropBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --animate-tree-shake: treeShake 0.5s ease-in-out;
+  --animate-sparkle: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes waterdropBounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.8); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes treeShake {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px) rotate(-2deg); }
+  50% { transform: translateY(4px) rotate(2deg); }
+  75% { transform: translateY(-4px) rotate(-2deg); }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #111827; /* 짙은 차콜 */
+    --foreground: #f3f4f6;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease;
+}
+
+/* Level up Sparkle Particle Container */
+.particle-container {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+.particle {
+  position: absolute;
+  color: #fbbf24;
+  font-size: 1.2rem;
+  animation: sparkle 1.2s ease-in-out infinite;
 }
