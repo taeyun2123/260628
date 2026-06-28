@@ -121,7 +121,7 @@ export default function TeacherDashboard() {
   // 병합된 학생 텃밭 (인증 + 미인증)
   const allStudentsForGrid = [
     ...certified.map(s => ({ ...s, is_certified: true })),
-    ...uncertified.map(s => ({ ...s, is_certified: false, tree_level: 1, current_xp: 0, daily_goal: null }))
+    ...uncertified.map(s => ({ ...s, is_certified: false, tree_level: 1, current_xp: 0, daily_goal: null, rating: null, teacher_rating: null }))
   ];
 
   return (
@@ -171,7 +171,7 @@ export default function TeacherDashboard() {
                       {/* Photo Thumbnail */}
                       <div 
                         className="relative h-20 w-20 cursor-pointer overflow-hidden rounded-2xl bg-gray-100 shadow-sm ring-2 ring-mint-100 dark:bg-zinc-700 dark:ring-mint-900"
-                        onClick={() => student.image_url && setSelectedPhoto({ url: student.image_url, name: student.name, comment: student.comment })}
+                        onClick={() => student.image_url && setSelectedImage(student.image_url)}
                       >
                         {student.image_url ? (
                           <img src={student.image_url} alt="인증샷" className="h-full w-full object-cover transition-transform hover:scale-110" />
@@ -296,7 +296,7 @@ export default function TeacherDashboard() {
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} allowDecimals={false} />
                   <RechartsTooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`${value}명`, '인증 학생 수']}
+                    formatter={(value: any) => [`${value}명`, '인증 학생 수']}
                     labelStyle={{ color: '#374151', fontWeight: 'bold', marginBottom: '4px' }}
                   />
                   <Line 

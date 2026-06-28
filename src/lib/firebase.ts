@@ -17,7 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const storage = getStorage(app);
 
-// Initialize Analytics only in the browser (client-side) and if supported
-export const analytics = typeof window !== "undefined" 
+// Initialize Analytics only in the browser, if supported, and if measurementId is provided
+export const analytics = typeof window !== "undefined" && firebaseConfig.measurementId
   ? isSupported().then(yes => yes ? getAnalytics(app) : null)
   : null;

@@ -72,7 +72,9 @@ export async function GET(request: Request) {
     dashboardData.sort((a, b) => {
       if (a.name === '잠자는 씨앗' && b.name !== '잠자는 씨앗') return 1;
       if (a.name !== '잠자는 씨앗' && b.name === '잠자는 씨앗') return -1;
-      return a.name.localeCompare(b.name);
+      const nameA = a.name || '알 수 없음';
+      const nameB = b.name || '알 수 없음';
+      return nameA.localeCompare(nameB);
     });
 
     return NextResponse.json({ students: dashboardData }, { status: 200 });
