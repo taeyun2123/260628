@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -10,10 +12,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '학생 ID가 필요합니다.' }, { status: 400 });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: studentId },
-      data: { is_nudged: true },
-    });
+    await adminDb.collection('users').doc(studentId).update({ is_nudged: true });
+    
+    // 클라이언트에 반환하기 위해 다시 조회
+    const userDoc = await adminDb.collection('users').doc(studentId).get();
+    const updatedUser = { id: userDoc.id, ...userDoc.data() };
 
     return NextResponse.json({ message: '독려 알림을 발송했습니다.', student: updatedUser }, { status: 200 });
   } catch (error) {

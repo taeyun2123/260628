@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: Request,
@@ -14,18 +16,15 @@ export async function PATCH(
       return NextResponse.json({ error: '유효한 햇님 점수(1~5)가 필요합니다.' }, { status: 400 });
     }
 
-    const certification = await prisma.certification.findUnique({
-      where: { id: certificationId },
-    });
+    const certRef = adminDb.collection('certifications').doc(certificationId);
+    const certDoc = await certRef.get();
 
-    if (!certification) {
+    if (!certDoc.exists) {
       return NextResponse.json({ error: '인증 기록을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    const updated = await prisma.certification.update({
-      where: { id: certificationId },
-      data: { teacher_rating },
-    });
+    await certRef.update({ teacher_rating });
+    const updated = { id: certRef.id, ...certDoc.data(), teacher_rating };
 
     return NextResponse.json({ message: '평가가 저장되었습니다.', certification: updated }, { status: 200 });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
@@ -17,12 +17,9 @@ export async function POST(request: Request) {
 
     const password_hash = await bcrypt.hash(new_password, 10);
 
-    const updatedUser = await prisma.user.update({
-      where: { id: user_id },
-      data: {
-        password_hash: password_hash,
-        is_password_changed: true,
-      },
+    await adminDb.collection('users').doc(user_id).update({
+      password_hash: password_hash,
+      is_password_changed: true,
     });
 
     return NextResponse.json({ message: '비밀번호가 성공적으로 변경되었습니다.' }, { status: 200 });

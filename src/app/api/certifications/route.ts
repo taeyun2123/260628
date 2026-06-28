@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -15,16 +17,22 @@ export async function POST(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 사용자의 오늘자 인증 레코드 찾기
-    const existingCert = await prisma.certification.findFirst({
-      where: {
-        user_id,
-        created_at: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
+    // 1. 유저 정보 조회 (class_code 확인용)
+    const userDoc = await adminDb.collection('users').doc(user_id).get();
+    if (!userDoc.exists) {
+      return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
+    }
+    const class_code = userDoc.data()?.class_code;
+
+    // 2. 사용자의 오늘자 인증 레코드 찾기
+    const certsSnapshot = await adminDb.collection('certifications')
+      .where('user_id', '==', user_id)
+      .where('created_at', '>=', today)
+      .where('created_at', '<', tomorrow)
+      .limit(1)
+      .get();
+    
+    let existingCert = certsSnapshot.empty ? null : { id: certsSnapshot.docs[0].id, ...certsSnapshot.docs[0].data() } as any;
 
     if (action === 'SET_GOAL') {
       if (existingCert) {
@@ -32,27 +40,25 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: '이미 인증이 완료되어 목표를 수정할 수 없습니다.' }, { status: 400 });
         }
         
-        // PENDING 상태면 목표 수정 (업데이트)
-        const updatedCert = await prisma.certification.update({
-          where: { id: existingCert.id },
-          data: { daily_goal },
-        });
-        return NextResponse.json({ message: '목표가 수정되었습니다.', cert: updatedCert }, { status: 200 });
+        // PENDING 상태면 목표 수정
+        await adminDb.collection('certifications').doc(existingCert.id).update({ daily_goal });
+        existingCert.daily_goal = daily_goal;
+        return NextResponse.json({ message: '목표가 수정되었습니다.', cert: existingCert }, { status: 200 });
       }
 
       if (!daily_goal) {
         return NextResponse.json({ error: '목표를 입력해주세요.' }, { status: 400 });
       }
 
-      const newCert = await prisma.certification.create({
-        data: {
-          user_id,
-          daily_goal,
-          status: 'PENDING',
-        },
+      const newCertRef = await adminDb.collection('certifications').add({
+        user_id,
+        class_code,
+        daily_goal,
+        status: 'PENDING',
+        created_at: new Date(),
       });
 
-      return NextResponse.json({ message: '목표가 설정되었습니다.', cert: newCert }, { status: 200 });
+      return NextResponse.json({ message: '목표가 설정되었습니다.', cert: { id: newCertRef.id, daily_goal, status: 'PENDING' } }, { status: 200 });
     }
 
     if (action === 'CERTIFY') {
@@ -60,32 +66,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '인증할 목표가 없거나 이미 인증을 완료했습니다.' }, { status: 400 });
       }
 
-      // 트랜잭션을 통해 인증 업데이트 및 XP/레벨업 동시 처리
-      const result = await prisma.$transaction(async (tx) => {
-        // 1. 인증 상태 업데이트
-        const updatedCert = await tx.certification.update({
-          where: { id: existingCert.id },
-          data: {
-            image_url: image_url || '/placeholder.png', // 모의 파일 업로드 URL
-            comment: comment || '',
-            status: 'APPROVED',
-          },
-        });
-
-        // 2. 나무 프로필 조회
-        const treeProfile = await tx.treeProfile.findUnique({
-          where: { user_id },
-        });
-
-        if (!treeProfile) {
+      // Firestore 트랜잭션을 통해 인증 업데이트 및 XP/레벨업 동시 처리
+      const result = await adminDb.runTransaction(async (t: any) => {
+        const certRef = adminDb.collection('certifications').doc(existingCert.id);
+        const treeRef = adminDb.collection('treeProfiles').where('user_id', '==', user_id).limit(1);
+        
+        const treeSnap = await t.get(treeRef);
+        if (treeSnap.empty) {
           throw new Error('나무 프로필을 찾을 수 없습니다.');
         }
+        const treeDocRef = treeSnap.docs[0].ref;
+        const treeProfile = treeSnap.docs[0].data();
 
-        // 3. XP 추가 및 레벨업 로직
+        // 1. 인증 상태 업데이트
+        t.update(certRef, {
+          image_url: image_url || '/placeholder.png',
+          comment: comment || '',
+          status: 'APPROVED',
+        });
+
+        // 2. XP 추가 및 레벨업 로직
         const XP_GAIN = 10;
         const MAX_LEVEL = 5;
-        let newXp = treeProfile.current_xp + XP_GAIN;
-        let newLevel = treeProfile.tree_level;
+        let newXp = (treeProfile.current_xp || 0) + XP_GAIN;
+        let newLevel = treeProfile.tree_level || 1;
         let levelUpOccurred = false;
 
         const nextLevelReq = newLevel * 50;
@@ -93,22 +97,17 @@ export async function POST(request: Request) {
         if (newXp >= nextLevelReq && newLevel < MAX_LEVEL) {
           newLevel += 1;
           levelUpOccurred = true;
-          // 남은 경험치 이월 여부 (요구사항에 맞춰 여기선 이월 유지)
         } else if (newLevel >= MAX_LEVEL) {
-          // 최대 레벨 도달 시 레벨 제한
           newLevel = MAX_LEVEL;
         }
 
-        // 4. 프로필 업데이트
-        const updatedTree = await tx.treeProfile.update({
-          where: { user_id },
-          data: {
-            current_xp: newXp,
-            tree_level: newLevel,
-          },
+        // 3. 프로필 업데이트
+        t.update(treeDocRef, {
+          current_xp: newXp,
+          tree_level: newLevel,
         });
 
-        return { updatedCert, updatedTree, levelUpOccurred };
+        return { levelUpOccurred, updatedTree: { current_xp: newXp, tree_level: newLevel } };
       });
 
       return NextResponse.json({ 

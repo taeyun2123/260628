@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: Request,
@@ -14,15 +16,16 @@ export async function PATCH(
       return NextResponse.json({ error: '올바른 사용자 ID와 1~5 사이의 별점(rating)이 필요합니다.' }, { status: 400 });
     }
 
-    const certification = await prisma.certification.findUnique({
-      where: { id: certificationId },
-    });
+    const certRef = adminDb.collection('certifications').doc(certificationId);
+    const certDoc = await certRef.get();
 
-    if (!certification) {
+    if (!certDoc.exists) {
       return NextResponse.json({ error: '해당 인증 기록을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    if (certification.user_id !== user_id) {
+    const certification = certDoc.data();
+
+    if (certification?.user_id !== user_id) {
       return NextResponse.json({ error: '본인의 기록만 평가할 수 있습니다.' }, { status: 403 });
     }
 
@@ -32,16 +35,15 @@ export async function PATCH(
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const isToday = certification.created_at >= today && certification.created_at < tomorrow;
+    const created_at = certification?.created_at?.toDate ? certification.created_at.toDate() : new Date(certification?.created_at);
+    const isToday = created_at >= today && created_at < tomorrow;
 
     if (!isToday) {
       return NextResponse.json({ error: '과거의 기록은 평가를 수정할 수 없습니다.' }, { status: 400 });
     }
 
-    const updatedCert = await prisma.certification.update({
-      where: { id: certificationId },
-      data: { rating },
-    });
+    await certRef.update({ rating });
+    const updatedCert = { id: certRef.id, ...certification, rating };
 
     return NextResponse.json({ message: '성찰 평가가 업데이트 되었습니다.', cert: updatedCert }, { status: 200 });
 

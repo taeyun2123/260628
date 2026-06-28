@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,19 +13,26 @@ export async function GET(request: Request) {
 
   try {
     // 1. 해당 학급의 모든 학생 가져오기
-    const students = await prisma.user.findMany({
-      where: {
-        class_id: classId,
-        role: 'STUDENT',
-      },
-      include: {
-        tree_profile: true,
-      },
-    });
+    const studentsSnap = await adminDb.collection('users')
+      .where('class_code', '==', classId)
+      .where('role', '==', 'STUDENT')
+      .get();
 
-    if (!students || students.length === 0) {
+    const students = studentsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
+
+    if (students.length === 0) {
       return NextResponse.json({ certified: [], uncertified: [] }, { status: 200 });
     }
+
+    // 병렬로 treeProfiles 조회
+    const treeProfilesData = await Promise.all(
+      students.map((s: any) => adminDb.collection('treeProfiles').where('user_id', '==', s.id).limit(1).get())
+    );
+    const treeProfiles = treeProfilesData.map((snap: any) => snap.empty ? null : snap.docs[0].data());
+
+    students.forEach((s: any, i: number) => {
+      s.tree_profile = treeProfiles[i];
+    });
 
     // 2. 오늘의 인증 기록 가져오기
     const today = new Date();
@@ -33,21 +40,19 @@ export async function GET(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todayCertifications = await prisma.certification.findMany({
-      where: {
-        user_id: { in: students.map(s => s.id) },
-        created_at: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
+    const certsSnap = await adminDb.collection('certifications')
+      .where('class_code', '==', classId)
+      .where('created_at', '>=', today)
+      .where('created_at', '<', tomorrow)
+      .get();
+
+    const todayCertifications = certsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
 
     const certifiedList: any[] = [];
     const uncertifiedList: any[] = [];
 
-    students.forEach((student) => {
-      const cert = todayCertifications.find(c => c.user_id === student.id);
+    students.forEach((student: any) => {
+      const cert = todayCertifications.find((c: any) => c.user_id === student.id);
       
       if (cert) {
         certifiedList.push({

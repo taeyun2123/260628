@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,30 +13,24 @@ export async function GET(request: Request) {
 
   try {
     // 1. 해당 학급의 전체 학생 수
-    const totalStudentsCount = await prisma.user.count({
-      where: {
-        class_id: classId,
-        role: 'STUDENT',
-      },
-    });
+    const totalStudentsSnap = await adminDb.collection('users')
+      .where('class_code', '==', classId)
+      .where('role', '==', 'STUDENT')
+      .count()
+      .get();
 
-    if (totalStudentsCount === 0) {
+    if (totalStudentsSnap.data().count === 0) {
       return NextResponse.json({ trend: [] }, { status: 200 });
     }
 
-    // 2. 해당 학급 학생들의 ID 목록 추출 (Certification 조회를 위함)
-    const students = await prisma.user.findMany({
-      where: { class_id: classId, role: 'STUDENT' },
-      select: { id: true },
-    });
-    const studentIds = students.map(s => s.id);
-
     // 3. 최근 7일(오늘 포함) 데이터 생성
-    const trendData = [];
+    const trendData: any[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // 과거 6일 전부터 오늘까지 순회 (총 7일)
+    // Firestore 쿼리 병렬 처리로 속도 향상
+    const dateQueries: any[] = [];
     for (let i = 6; i >= 0; i--) {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() - i);
@@ -44,18 +38,22 @@ export async function GET(request: Request) {
       const nextDay = new Date(targetDate);
       nextDay.setDate(nextDay.getDate() + 1);
 
-      // 해당 날짜의 Certification 개수 세기 (학생별로 1개씩이므로 count를 그대로 사용 가능. 중복 시 distinct 처리 필요하지만 현재 1일 1개 목표)
-      const certCount = await prisma.certification.count({
-        where: {
-          user_id: { in: studentIds },
-          created_at: {
-            gte: targetDate,
-            lt: nextDay,
-          },
-        },
+      dateQueries.push({
+        targetDate,
+        promise: adminDb.collection('certifications')
+          .where('class_code', '==', classId)
+          .where('created_at', '>=', targetDate)
+          .where('created_at', '<', nextDay)
+          .count()
+          .get()
       });
+    }
 
-      const count = certCount;
+    const results = await Promise.all(dateQueries.map(q => q.promise));
+
+    results.forEach((certCountSnap, idx) => {
+      const targetDate = dateQueries[idx].targetDate;
+      const count = certCountSnap.data().count;
 
       const month = targetDate.getMonth() + 1;
       const date = targetDate.getDate();
@@ -64,7 +62,7 @@ export async function GET(request: Request) {
         date: `${month}/${date}`,
         count: count,
       });
-    }
+    });
 
     return NextResponse.json({ trend: trendData }, { status: 200 });
   } catch (error) {

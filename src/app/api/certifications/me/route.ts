@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,29 +12,38 @@ export async function GET(request: Request) {
   }
 
   try {
-    const userWithCertifications = await prisma.user.findUnique({
-      where: { id: user_id },
-      include: {
-        tree_profile: true,
-        certifications: {
-          orderBy: {
-            created_at: 'desc',
-          },
-        },
-      },
-    });
+    const userDoc = await adminDb.collection('users').doc(user_id).get();
 
-    if (!userWithCertifications) {
+    if (!userDoc.exists) {
       return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    const userData = userDoc.data();
+
+    const treeSnap = await adminDb.collection('treeProfiles').where('user_id', '==', user_id).limit(1).get();
+    const tree_profile = treeSnap.empty ? null : treeSnap.docs[0].data();
+
+    const certsSnap = await adminDb.collection('certifications')
+      .where('user_id', '==', user_id)
+      .orderBy('created_at', 'desc')
+      .get();
+    
+    const certifications = certsSnap.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: data.created_at?.toDate ? data.created_at.toDate() : data.created_at,
+      };
+    });
+
     return NextResponse.json({
       user: {
-        id: userWithCertifications.id,
-        login_id: userWithCertifications.login_id,
-        tree_profile: userWithCertifications.tree_profile,
+        id: user_id,
+        login_id: userData?.login_id,
+        tree_profile,
       },
-      certifications: userWithCertifications.certifications,
+      certifications,
     }, { status: 200 });
 
   } catch (error) {
