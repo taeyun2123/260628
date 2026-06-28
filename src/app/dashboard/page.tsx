@@ -27,6 +27,9 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialGoal, setInitialGoal] = useState<string | null>(null);
 
+  // Tooltip State for Grid
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
   // Mobile Drawer State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -196,13 +199,21 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {students.map((student) => {
                 const isLevelingUp = levelUpIds.includes(student.id);
+                const isSleeping = student.name === "잠자는 씨앗";
                 return (
                 <div 
                   key={student.id} 
+                  onClick={() => {
+                    if (!isSleeping) {
+                      setSelectedStudentId(selectedStudentId === student.id ? null : student.id);
+                    }
+                  }}
                   className={`relative flex flex-col items-center justify-center rounded-2xl p-4 transition-all duration-300 ${
+                    isSleeping ? "cursor-default" : "cursor-pointer"
+                  } ${
                     student.is_me 
                       ? "ring-2 ring-forest-500 bg-white shadow-md dark:bg-zinc-800" 
-                      : student.name === "잠자는 씨앗"
+                      : isSleeping
                         ? "opacity-60 grayscale filter bg-black/5 dark:bg-white/5"
                         : "bg-white/80 shadow-sm hover:scale-105 hover:bg-white dark:bg-zinc-800/80 dark:hover:bg-zinc-800 hover:shadow-md"
                   } ${isLevelingUp ? "animate-tree-shake ring-4 ring-yellow-400" : ""}`}
@@ -223,22 +234,34 @@ export default function DashboardPage() {
                     {getTreeEmoji(student.tree_level)}
                   </div>
                   <div className="mt-2 text-center w-full">
-                    <div className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                      {student.name}
-                    </div>
-                    {student.name !== "잠자는 씨앗" && (
-                      <div className="mt-1 flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                        <span>Lv.{student.tree_level}</span>
-                        <span>•</span>
-                        <span>XP: {student.current_xp}</span>
+                    {isSleeping ? (
+                      <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-3">
+                        잠자는 씨앗
                       </div>
-                    )}
-                    {student.daily_goal && student.name !== "잠자는 씨앗" && (
-                      <div className="mt-2 truncate rounded-xl bg-beige-50 px-2 py-1.5 text-xs text-forest-800 dark:bg-zinc-900 dark:text-forest-400 shadow-sm border border-olive-100 dark:border-zinc-700">
-                        {student.daily_goal}
+                    ) : (
+                      <div className="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                        <span className="rounded-md bg-forest-50 px-1.5 py-0.5 text-forest-700 dark:bg-forest-900/50 dark:text-forest-400">Lv.{student.tree_level}</span>
+                        <span>•</span>
+                        <span>XP {student.current_xp}</span>
                       </div>
                     )}
                   </div>
+
+                  {/* 말풍선 툴팁 */}
+                  {selectedStudentId === student.id && !isSleeping && (
+                    <div className="absolute -top-14 left-1/2 z-30 w-48 -translate-x-1/2 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-mint-100 dark:bg-zinc-800 dark:ring-zinc-700 animate-fade-in-up">
+                      <div className="mb-1 text-sm font-bold text-gray-900 dark:text-gray-100">{student.name}</div>
+                      {student.daily_goal ? (
+                        <div className="text-xs text-gray-600 dark:text-gray-300 bg-beige-50 dark:bg-zinc-900 p-2 rounded-xl border border-olive-50 dark:border-zinc-700">
+                          {student.daily_goal}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 italic">아직 목표를 세우지 않았어요.</div>
+                      )}
+                      {/* 말풍선 꼬리 */}
+                      <div className="absolute -bottom-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-mint-100 bg-white dark:border-zinc-700 dark:bg-zinc-800"></div>
+                    </div>
+                  )}
                 </div>
                 );
               })}

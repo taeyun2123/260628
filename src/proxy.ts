@@ -6,7 +6,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'super_secret_key_for_study_forest'
 );
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // 보호할 경로 (예: /teacher 로 시작하는 모든 경로)
   if (request.nextUrl.pathname.startsWith('/teacher')) {
     const sessionCookie = request.cookies.get('study_forest_session');
