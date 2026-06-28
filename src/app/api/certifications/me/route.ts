@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     });
 
     // in-memory 정렬 (최신순)
-    certifications.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+    certifications.sort((a: any, b: any) => b.created_at.getTime() - a.created_at.getTime());
 
     return NextResponse.json({
       user: {

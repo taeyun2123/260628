@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       .where('class_code', '==', classId)
       .get();
     
-    const allCerts = certsSnap.docs.map(doc => doc.data());
+    const allCerts = certsSnap.docs.map((doc: any) => doc.data());
     
     // 7일간 순회
     for (let i = 6; i >= 0; i--) {
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       const nextDay = new Date(targetDate);
       nextDay.setDate(nextDay.getDate() + 1);
 
-      const count = allCerts.filter(c => {
+      const count = allCerts.filter((c: any) => {
         const d = c.created_at?.toDate ? c.created_at.toDate() : new Date(c.created_at);
         return d >= targetDate && d < nextDay;
       }).length;

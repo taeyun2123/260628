@@ -14,6 +14,7 @@ interface StudentData {
   is_me: boolean;
   is_goal_set: boolean;
   is_certified: boolean;
+  is_sleeping?: boolean;
 }
 
 export default function DashboardPage() {
