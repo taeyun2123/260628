@@ -40,13 +40,16 @@ export async function GET(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // 해당 학급의 전체 인증을 가져온 후 in-memory에서 필터링 (복합 인덱스 오류 방지)
     const certsSnap = await adminDb.collection('certifications')
       .where('class_code', '==', classId)
-      .where('created_at', '>=', today)
-      .where('created_at', '<', tomorrow)
       .get();
 
-    const todayCertifications = certsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
+    const allCertifications = certsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
+    const todayCertifications = allCertifications.filter((c: any) => {
+      const d = c.created_at?.toDate ? c.created_at.toDate() : new Date(c.created_at);
+      return d >= today && d < tomorrow;
+    });
 
     const certifiedList: any[] = [];
     const uncertifiedList: any[] = [];

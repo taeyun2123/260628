@@ -40,14 +40,16 @@ export async function GET(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 3. 오늘 등록된 인증(Certification) 내역 조회
+    // 3. 해당 클래스의 모든 인증(Certification) 내역 조회 후 in-memory 필터 (인덱스 오류 회피)
     const certsSnapshot = await adminDb.collection('certifications')
       .where('class_code', '==', class_id)
-      .where('created_at', '>=', today)
-      .where('created_at', '<', tomorrow)
       .get();
 
-    const todayCertifications = certsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
+    const allCertifications = certsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
+    const todayCertifications = allCertifications.filter((c: any) => {
+      const d = c.created_at?.toDate ? c.created_at.toDate() : new Date(c.created_at);
+      return d >= today && d < tomorrow;
+    });
 
     // 4. 데이터 맵핑 및 익명화(Privacy) 처리 로직
     const dashboardData = students.map((student: any) => {
@@ -57,15 +59,14 @@ export async function GET(request: Request) {
       const isCertified = cert?.status === 'APPROVED';
       const isGoalSet = cert !== undefined; // 상태가 PENDING이든 APPROVED이든 레코드가 있으면 목표 설정됨
 
-      // 보안/낙인 방지 룰 적용:
-      // 본인이 아니면서 + 인증(APPROVED)을 완료하지 않았다면 익명화 처리
+      // 보안/낙인 방지 룰: 이전에는 미인증 시 이름을 숨겼으나, 요청에 의해 모든 학생의 실명 노출
       const isMe = student.id === user_id;
       const shouldMask = !isMe && !isCertified;
 
       return {
         id: student.id,
-        // 익명화 조건에 해당하면 이름 가리기
-        name: shouldMask ? '잠자는 씨앗' : student.login_id,
+        name: student.login_id, // 항상 학번+이름 노출
+        is_sleeping: shouldMask, // 상태 식별용 플래그 추가
         tree_level: student.tree_profile?.tree_level || 1,
         current_xp: student.tree_profile?.current_xp || 0,
         daily_goal: shouldMask ? '비공개' : cert?.daily_goal || null,

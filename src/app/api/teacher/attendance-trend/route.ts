@@ -23,14 +23,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ trend: [] }, { status: 200 });
     }
 
-    // 3. 최근 7일(오늘 포함) 데이터 생성
+    // 3. 최근 7일(오늘 포함) 데이터 생성 (인덱스 오류 회피를 위해 in-memory에서 필터링)
     const trendData: any[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 과거 6일 전부터 오늘까지 순회 (총 7일)
-    // Firestore 쿼리 병렬 처리로 속도 향상
-    const dateQueries: any[] = [];
+    // 7일 전 날짜 구하기
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+    const certsSnap = await adminDb.collection('certifications')
+      .where('class_code', '==', classId)
+      .get();
+    
+    const allCerts = certsSnap.docs.map(doc => doc.data());
+    
+    // 7일간 순회
     for (let i = 6; i >= 0; i--) {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() - i);
@@ -38,22 +46,10 @@ export async function GET(request: Request) {
       const nextDay = new Date(targetDate);
       nextDay.setDate(nextDay.getDate() + 1);
 
-      dateQueries.push({
-        targetDate,
-        promise: adminDb.collection('certifications')
-          .where('class_code', '==', classId)
-          .where('created_at', '>=', targetDate)
-          .where('created_at', '<', nextDay)
-          .count()
-          .get()
-      });
-    }
-
-    const results = await Promise.all(dateQueries.map(q => q.promise));
-
-    results.forEach((certCountSnap, idx) => {
-      const targetDate = dateQueries[idx].targetDate;
-      const count = certCountSnap.data().count;
+      const count = allCerts.filter(c => {
+        const d = c.created_at?.toDate ? c.created_at.toDate() : new Date(c.created_at);
+        return d >= targetDate && d < nextDay;
+      }).length;
 
       const month = targetDate.getMonth() + 1;
       const date = targetDate.getDate();
@@ -62,7 +58,7 @@ export async function GET(request: Request) {
         date: `${month}/${date}`,
         count: count,
       });
-    });
+    }
 
     return NextResponse.json({ trend: trendData }, { status: 200 });
   } catch (error) {

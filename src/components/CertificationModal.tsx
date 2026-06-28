@@ -88,13 +88,20 @@ export default function CertificationModal({
     try {
       let finalImageUrl = "/placeholder.png";
       if (imageFile) {
-        // Firebase Storage에 업로드
-        const fileExt = imageFile.name.split(".").pop() || "jpg";
-        const fileName = `certifications/${userId}_${Date.now()}.${fileExt}`;
-        const storageRef = ref(storage, fileName);
+        // 백엔드 API를 통해 Firebase Storage에 업로드 (규칙 우회)
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        formData.append("user_id", userId);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
         
-        await uploadBytes(storageRef, imageFile);
-        finalImageUrl = await getDownloadURL(storageRef);
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error || "이미지 업로드에 실패했습니다.");
+        
+        finalImageUrl = uploadData.url;
       }
 
       const res = await fetch("/api/certifications", {

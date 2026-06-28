@@ -94,6 +94,18 @@ export default function DashboardPage() {
     }
   };
 
+  const getTreeName = (level: number) => {
+    switch (level) {
+      case 1: return "잠자는 씨앗";
+      case 2: return "자라는 새싹";
+      case 3: return "튼튼한 묘목";
+      case 4: return "연두빛 나무";
+      case 5: return "풍성한 나무";
+      case 6: return "열매가 가득";
+      default: return "열매가 가득";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-green-50 dark:bg-zinc-950">
@@ -199,7 +211,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {students.map((student) => {
                 const isLevelingUp = levelUpIds.includes(student.id);
-                const isSleeping = student.name === "잠자는 씨앗";
+                const isSleeping = student.is_sleeping || student.name === "잠자는 씨앗";
                 return (
                 <div 
                   key={student.id} 
@@ -234,15 +246,23 @@ export default function DashboardPage() {
                     {getTreeEmoji(student.tree_level)}
                   </div>
                   <div className="mt-2 text-center w-full">
+                    <div className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                      {student.name}
+                    </div>
                     {isSleeping ? (
-                      <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-3">
-                        잠자는 씨앗
+                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 mt-1">
+                        잠자는 씨앗 💤
                       </div>
                     ) : (
-                      <div className="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-                        <span className="rounded-md bg-forest-50 px-1.5 py-0.5 text-forest-700 dark:bg-forest-900/50 dark:text-forest-400">Lv.{student.tree_level}</span>
-                        <span>•</span>
-                        <span>XP {student.current_xp}</span>
+                      <div className="mt-1 flex flex-col items-center justify-center gap-0.5">
+                        <div className="text-[11px] font-bold text-mint-600 dark:text-mint-400">
+                          {getTreeName(student.tree_level)}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                          <span className="rounded-md bg-forest-50 px-1 py-0.5 text-forest-700 dark:bg-forest-900/50 dark:text-forest-400">Lv.{student.tree_level}</span>
+                          <span>•</span>
+                          <span>XP {student.current_xp}</span>
+                        </div>
                       </div>
                     )}
                   </div>

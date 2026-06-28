@@ -24,15 +24,18 @@ export async function POST(request: Request) {
     }
     const class_code = userDoc.data()?.class_code;
 
-    // 2. 사용자의 오늘자 인증 레코드 찾기
+    // 2. 사용자의 인증 레코드를 모두 가져온 뒤 오늘자 필터링 (복합 인덱스 오류 방지)
     const certsSnapshot = await adminDb.collection('certifications')
       .where('user_id', '==', user_id)
-      .where('created_at', '>=', today)
-      .where('created_at', '<', tomorrow)
-      .limit(1)
       .get();
     
-    let existingCert = certsSnapshot.empty ? null : { id: certsSnapshot.docs[0].id, ...certsSnapshot.docs[0].data() } as any;
+    const certs = certsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+    const todayCerts = certs.filter((c: any) => {
+      const d = c.created_at?.toDate ? c.created_at.toDate() : new Date(c.created_at);
+      return d >= today && d < tomorrow;
+    });
+
+    let existingCert = todayCerts.length === 0 ? null : todayCerts[0];
 
     if (action === 'SET_GOAL') {
       if (existingCert) {

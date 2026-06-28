@@ -110,6 +110,18 @@ export default function TeacherDashboard() {
     }
   };
 
+  const getTreeName = (level: number) => {
+    switch (level) {
+      case 1: return "잠자는 씨앗";
+      case 2: return "자라는 새싹";
+      case 3: return "튼튼한 묘목";
+      case 4: return "연두빛 나무";
+      case 5: return "풍성한 나무";
+      case 6: return "열매가 가득";
+      default: return "열매가 가득";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950">
@@ -227,9 +239,12 @@ export default function TeacherDashboard() {
                     <div className="my-1 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-green-100 to-green-50 text-4xl shadow-inner dark:from-green-900 dark:to-green-800">
                       {getTreeEmoji(student.tree_level)}
                     </div>
-                    <div className="mt-2 text-center w-full">
+                    <div className="mt-2 text-center w-full flex flex-col gap-0.5">
                       <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
                         {student.name}
+                      </div>
+                      <div className="text-[10px] font-semibold text-mint-600 dark:text-mint-400 truncate">
+                        {student.is_certified ? getTreeName(student.tree_level) : "잠자는 씨앗 💤"}
                       </div>
                     </div>
 
@@ -286,29 +301,40 @@ export default function TeacherDashboard() {
           </div>
 
           {/* 4. 하단 영역 (col-span-12): 추세 그래프 */}
-          <div className="lg:col-span-12 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-olive-100 dark:bg-zinc-900 dark:ring-zinc-800">
-            <h2 className="mb-6 text-lg font-bold text-gray-800 dark:text-gray-200">최근 7일 학급 인증 학생 수 추이</h2>
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} allowDecimals={false} />
-                  <RechartsTooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: any) => [`${value}명`, '인증 학생 수']}
-                    labelStyle={{ color: '#374151', fontWeight: 'bold', marginBottom: '4px' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }} 
-                    activeDot={{ r: 6 }} 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="lg:col-span-12 relative overflow-hidden rounded-2xl p-6 shadow-sm ring-1 ring-olive-100 dark:ring-zinc-800">
+            {/* 숲 배경 장식 (연한 파스텔 톤) */}
+            <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-emerald-50/50 to-mint-50 dark:from-zinc-900 dark:via-zinc-800 dark:to-forest-900/20"></div>
+            <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.04] pointer-events-none select-none">🌲</div>
+            <div className="absolute -top-10 -left-10 text-9xl opacity-[0.04] pointer-events-none select-none">🌿</div>
+            <div className="absolute top-1/2 left-1/3 text-7xl opacity-[0.02] pointer-events-none select-none -translate-y-1/2">🍃</div>
+            
+            <div className="relative z-10">
+              <h2 className="mb-6 text-lg font-bold text-forest-800 dark:text-gray-200 flex items-center gap-2">
+                <span>📈</span> 최근 7일 학급 인증 학생 수 추이
+              </h2>
+              <div className="h-[250px] w-full rounded-xl bg-white/60 dark:bg-black/20 p-4 backdrop-blur-sm border border-olive-100/50 dark:border-white/5 shadow-inner">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} allowDecimals={false} />
+                    <RechartsTooltip 
+                      contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: '#1f2937' }}
+                      formatter={(value: any) => [`${value}명`, '인증 학생 수']}
+                      labelStyle={{ color: '#059669', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: '#1f2937' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#10b981" 
+                      strokeWidth={4} 
+                      dot={{ r: 5, fill: '#059669', strokeWidth: 2, stroke: '#fff' }} 
+                      activeDot={{ r: 8, fill: '#34d399', stroke: '#fff', strokeWidth: 3 }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 

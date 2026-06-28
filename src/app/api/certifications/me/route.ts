@@ -25,17 +25,19 @@ export async function GET(request: Request) {
 
     const certsSnap = await adminDb.collection('certifications')
       .where('user_id', '==', user_id)
-      .orderBy('created_at', 'desc')
       .get();
     
-    const certifications = certsSnap.docs.map((doc: any) => {
+    let certifications = certsSnap.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,
         ...data,
-        created_at: data.created_at?.toDate ? data.created_at.toDate() : data.created_at,
+        created_at: data.created_at?.toDate ? data.created_at.toDate() : new Date(data.created_at),
       };
     });
+
+    // in-memory 정렬 (최신순)
+    certifications.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
 
     return NextResponse.json({
       user: {
