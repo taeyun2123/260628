@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 
 interface CertificationModalProps {
   isOpen: boolean;
@@ -86,13 +88,13 @@ export default function CertificationModal({
     try {
       let finalImageUrl = "/placeholder.png";
       if (imageFile) {
-        // blob URL 대신 Base64로 인코딩하여 영구적으로 DB에 저장
-        finalImageUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(imageFile);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
-        });
+        // Firebase Storage에 업로드
+        const fileExt = imageFile.name.split(".").pop() || "jpg";
+        const fileName = `certifications/${userId}_${Date.now()}.${fileExt}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, imageFile);
+        finalImageUrl = await getDownloadURL(storageRef);
       }
 
       const res = await fetch("/api/certifications", {

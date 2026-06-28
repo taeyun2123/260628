@@ -80,7 +80,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-green-50 p-4 dark:bg-zinc-950">
+    <div className="relative flex min-h-screen items-center justify-center bg-green-50 p-4 dark:bg-zinc-950">
       <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900">
         
         {/* 헤더 섹션 */}
@@ -197,6 +197,11 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+      </div>
+      
+      {/* 제작자 정보 */}
+      <div className="absolute bottom-4 right-6 text-sm font-medium text-gray-400 dark:text-gray-500">
+        제작자: 성남중학교 김태연
       </div>
     </div>
   );
