@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, getCountFromServer } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +14,12 @@ export async function GET(request: Request) {
 
   try {
     // 1. 해당 학급의 전체 학생 수
-    const totalStudentsSnap = await adminDb.collection('users')
-      .where('class_code', '==', classId)
-      .where('role', '==', 'STUDENT')
-      .count()
-      .get();
+    const studentsQuery = query(
+      collection(db, 'users'),
+      where('class_code', '==', classId),
+      where('role', '==', 'STUDENT')
+    );
+    const totalStudentsSnap = await getCountFromServer(studentsQuery);
 
     if (totalStudentsSnap.data().count === 0) {
       return NextResponse.json({ trend: [] }, { status: 200 });
@@ -32,9 +34,11 @@ export async function GET(request: Request) {
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-    const certsSnap = await adminDb.collection('certifications')
-      .where('class_code', '==', classId)
-      .get();
+    const certsQuery = query(
+      collection(db, 'certifications'),
+      where('class_code', '==', classId)
+    );
+    const certsSnap = await getDocs(certsQuery);
     
     const allCerts = certsSnap.docs.map((doc: any) => doc.data());
     

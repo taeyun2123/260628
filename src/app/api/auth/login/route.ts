@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit } from 'firebase/firestore';
 import { SignJWT } from 'jose';
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
 
     if (loginType === 'STUDENT') {
       // 1단계: 반 인증번호(class_code) 확인
-      const classDoc = await adminDb.collection('classes').doc(class_code).get();
+      const classDocRef = doc(db, 'classes', class_code);
+      const classDoc = await getDoc(classDocRef);
 
       if (!classDoc.exists) {
         console.error(`[LOGIN_DEBUG] 학급코드(${class_code})를 찾을 수 없습니다.`);
@@ -31,12 +33,14 @@ export async function POST(request: Request) {
       classId = class_code; // Firestore에서는 class_code를 ID로 사용
 
       // 2단계: 아이디(login_id) 및 비밀번호 확인
-      const usersSnapshot = await adminDb.collection('users')
-        .where('class_code', '==', class_code)
-        .where('login_id', '==', login_id)
-        .where('role', '==', 'STUDENT')
-        .limit(1)
-        .get();
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('class_code', '==', class_code),
+        where('login_id', '==', login_id),
+        where('role', '==', 'STUDENT'),
+        firestoreLimit(1)
+      );
+      const usersSnapshot = await getDocs(usersQuery);
 
       if (usersSnapshot.empty) {
         console.error(`[LOGIN_DEBUG] 학생 아이디(${login_id})를 찾을 수 없습니다. (class_code: ${class_code})`);
@@ -49,11 +53,13 @@ export async function POST(request: Request) {
       console.log(`[LOGIN_DEBUG] 학생 유저 조회 성공: ${user.id}`);
     } else if (loginType === 'TEACHER') {
       // 선생님은 이메일(login_id)과 비밀번호로만 로그인
-      const usersSnapshot = await adminDb.collection('users')
-        .where('login_id', '==', login_id)
-        .where('role', '==', 'TEACHER')
-        .limit(1)
-        .get();
+      const teachersQuery = query(
+        collection(db, 'users'),
+        where('login_id', '==', login_id),
+        where('role', '==', 'TEACHER'),
+        firestoreLimit(1)
+      );
+      const usersSnapshot = await getDocs(teachersQuery);
 
       if (usersSnapshot.empty) {
         console.error(`[LOGIN_DEBUG] 교사 아이디(${login_id})를 찾을 수 없습니다.`);

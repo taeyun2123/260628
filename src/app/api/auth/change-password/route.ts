@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
@@ -17,7 +18,8 @@ export async function POST(request: Request) {
 
     const password_hash = await bcrypt.hash(new_password, 10);
 
-    await adminDb.collection('users').doc(user_id).update({
+    const userRef = doc(db, 'users', user_id);
+    await updateDoc(userRef, {
       password_hash: password_hash,
       is_password_changed: true,
     });

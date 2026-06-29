@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +14,12 @@ export async function GET(request: Request) {
 
   try {
     // 1. 해당 학급의 모든 학생 가져오기
-    const studentsSnap = await adminDb.collection('users')
-      .where('class_code', '==', classId)
-      .where('role', '==', 'STUDENT')
-      .get();
+    const studentsQuery = query(
+      collection(db, 'users'),
+      where('class_code', '==', classId),
+      where('role', '==', 'STUDENT')
+    );
+    const studentsSnap = await getDocs(studentsQuery);
 
     const students = studentsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
 
@@ -26,7 +29,10 @@ export async function GET(request: Request) {
 
     // 병렬로 treeProfiles 조회
     const treeProfilesData = await Promise.all(
-      students.map((s: any) => adminDb.collection('treeProfiles').where('user_id', '==', s.id).limit(1).get())
+      students.map((s: any) => {
+        const treeQuery = query(collection(db, 'treeProfiles'), where('user_id', '==', s.id), firestoreLimit(1));
+        return getDocs(treeQuery);
+      })
     );
     const treeProfiles = treeProfilesData.map((snap: any) => snap.empty ? null : snap.docs[0].data());
 
@@ -41,9 +47,11 @@ export async function GET(request: Request) {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 해당 학급의 전체 인증을 가져온 후 in-memory에서 필터링 (복합 인덱스 오류 방지)
-    const certsSnap = await adminDb.collection('certifications')
-      .where('class_code', '==', classId)
-      .get();
+    const certsQuery = query(
+      collection(db, 'certifications'),
+      where('class_code', '==', classId)
+    );
+    const certsSnap = await getDocs(certsQuery);
 
     const allCertifications = certsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
     const todayCertifications = allCertifications.filter((c: any) => {

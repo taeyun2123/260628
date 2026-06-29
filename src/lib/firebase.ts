@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -16,6 +17,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const storage = getStorage(app);
+export const db = getFirestore(app);
 
 // Initialize Analytics only in the browser, if supported, and if measurementId is provided
 export const analytics = typeof window !== "undefined" && firebaseConfig.measurementId

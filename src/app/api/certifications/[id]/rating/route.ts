@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,8 @@ export async function PATCH(
       return NextResponse.json({ error: '올바른 사용자 ID와 1~5 사이의 별점(rating)이 필요합니다.' }, { status: 400 });
     }
 
-    const certRef = adminDb.collection('certifications').doc(certificationId);
-    const certDoc = await certRef.get();
+    const certRef = doc(db, 'certifications', certificationId);
+    const certDoc = await getDoc(certRef);
 
     if (!certDoc.exists) {
       return NextResponse.json({ error: '해당 인증 기록을 찾을 수 없습니다.' }, { status: 404 });
@@ -42,7 +43,7 @@ export async function PATCH(
       return NextResponse.json({ error: '과거의 기록은 평가를 수정할 수 없습니다.' }, { status: 400 });
     }
 
-    await certRef.update({ rating });
+    await updateDoc(certRef, { rating });
     const updatedCert = { id: certRef.id, ...certification, rating };
 
     return NextResponse.json({ message: '성찰 평가가 업데이트 되었습니다.', cert: updatedCert }, { status: 200 });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, runTransaction, limit as firestoreLimit } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,17 +18,19 @@ export async function POST(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 1. 유저 정보 조회 (class_code 확인용)
-    const userDoc = await adminDb.collection('users').doc(user_id).get();
+    const userDocRef = doc(db, 'users', user_id);
+    const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists) {
       return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
     }
     const class_code = userDoc.data()?.class_code;
 
     // 2. 사용자의 인증 레코드를 모두 가져온 뒤 오늘자 필터링 (복합 인덱스 오류 방지)
-    const certsSnapshot = await adminDb.collection('certifications')
-      .where('user_id', '==', user_id)
-      .get();
+    const certsQuery = query(
+      collection(db, 'certifications'),
+      where('user_id', '==', user_id)
+    );
+    const certsSnapshot = await getDocs(certsQuery);
     
     const certs = certsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     const todayCerts = certs.filter((c: any) => {
@@ -44,7 +47,8 @@ export async function POST(request: Request) {
         }
         
         // PENDING 상태면 목표 수정
-        await adminDb.collection('certifications').doc(existingCert.id).update({ daily_goal });
+        const existingCertRef = doc(db, 'certifications', existingCert.id);
+        await updateDoc(existingCertRef, { daily_goal });
         existingCert.daily_goal = daily_goal;
         return NextResponse.json({ message: '목표가 수정되었습니다.', cert: existingCert }, { status: 200 });
       }
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '목표를 입력해주세요.' }, { status: 400 });
       }
 
-      const newCertRef = await adminDb.collection('certifications').add({
+      const newCertRef = await addDoc(collection(db, 'certifications'), {
         user_id,
         class_code,
         daily_goal,
@@ -70,11 +74,11 @@ export async function POST(request: Request) {
       }
 
       // Firestore 트랜잭션을 통해 인증 업데이트 및 XP/레벨업 동시 처리
-      const result = await adminDb.runTransaction(async (t: any) => {
-        const certRef = adminDb.collection('certifications').doc(existingCert.id);
-        const treeRef = adminDb.collection('treeProfiles').where('user_id', '==', user_id).limit(1);
+      const result = await runTransaction(db, async (t) => {
+        const certRef = doc(db, 'certifications', existingCert.id);
+        const treeQuery = query(collection(db, 'treeProfiles'), where('user_id', '==', user_id), firestoreLimit(1));
         
-        const treeSnap = await t.get(treeRef);
+        const treeSnap = await getDocs(treeQuery);
         if (treeSnap.empty) {
           throw new Error('나무 프로필을 찾을 수 없습니다.');
         }

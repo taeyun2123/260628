@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const userDoc = await adminDb.collection('users').doc(user_id).get();
+    const userDocRef = doc(db, 'users', user_id);
+    const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists) {
       return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
@@ -20,12 +22,15 @@ export async function GET(request: Request) {
 
     const userData = userDoc.data();
 
-    const treeSnap = await adminDb.collection('treeProfiles').where('user_id', '==', user_id).limit(1).get();
+    const treeQuery = query(collection(db, 'treeProfiles'), where('user_id', '==', user_id), firestoreLimit(1));
+    const treeSnap = await getDocs(treeQuery);
     const tree_profile = treeSnap.empty ? null : treeSnap.docs[0].data();
 
-    const certsSnap = await adminDb.collection('certifications')
-      .where('user_id', '==', user_id)
-      .get();
+    const certsQuery = query(
+      collection(db, 'certifications'),
+      where('user_id', '==', user_id)
+    );
+    const certsSnap = await getDocs(certsQuery);
     
     let certifications = certsSnap.docs.map((doc: any) => {
       const data = doc.data();

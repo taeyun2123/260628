@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminStorage } from '@/lib/firebaseAdmin';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,23 +19,17 @@ export async function POST(request: Request) {
     
     // File 데이터를 Buffer로 변환
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = new Uint8Array(arrayBuffer);
 
-    // Firebase Admin SDK를 통해 Storage에 업로드 (보안 룰 우회)
-    const bucket = adminStorage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
-    const fileRef = bucket.file(fileName);
+    // 일반 Firebase SDK를 통한 Storage 업로드 (Storage 보안 룰 체크됨)
+    const fileRef = ref(storage, fileName);
     
-    await fileRef.save(buffer, {
-      metadata: {
-        contentType: file.type,
-      },
+    await uploadBytes(fileRef, buffer, {
+      contentType: file.type,
     });
 
-    // Make file public to allow clients to download
-    await fileRef.makePublic();
-    
-    // Return public URL
-    const publicUrl = fileRef.publicUrl();
+    // 클라이언트 SDK는 기본적으로 다운로드 URL을 제공함
+    const publicUrl = await getDownloadURL(fileRef);
 
     return NextResponse.json({ url: publicUrl }, { status: 200 });
   } catch (error) {

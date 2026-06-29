@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +17,14 @@ export async function PATCH(
       return NextResponse.json({ error: '유효한 햇님 점수(1~5)가 필요합니다.' }, { status: 400 });
     }
 
-    const certRef = adminDb.collection('certifications').doc(certificationId);
-    const certDoc = await certRef.get();
+    const certRef = doc(db, 'certifications', certificationId);
+    const certDoc = await getDoc(certRef);
 
     if (!certDoc.exists) {
       return NextResponse.json({ error: '인증 기록을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    await certRef.update({ teacher_rating });
+    await updateDoc(certRef, { teacher_rating });
     const updated = { id: certRef.id, ...certDoc.data(), teacher_rating };
 
     return NextResponse.json({ message: '평가가 저장되었습니다.', certification: updated }, { status: 200 });

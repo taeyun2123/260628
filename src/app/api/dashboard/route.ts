@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,16 +18,21 @@ export async function GET(request: Request) {
 
   try {
     // 1. 해당 학급의 모든 학생 조회 (선생님 제외)
-    const studentsSnapshot = await adminDb.collection('users')
-      .where('class_code', '==', class_id)
-      .where('role', '==', 'STUDENT')
-      .get();
+    const studentsQuery = query(
+      collection(db, 'users'),
+      where('class_code', '==', class_id),
+      where('role', '==', 'STUDENT')
+    );
+    const studentsSnapshot = await getDocs(studentsQuery);
 
     const students = studentsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
 
     // tree_profile 조회를 위해 병렬 쿼리 (최대 학생수 감안하여 Promise.all)
     const treeProfilesData = await Promise.all(
-      students.map((s: any) => adminDb.collection('treeProfiles').where('user_id', '==', s.id).limit(1).get())
+      students.map((s: any) => {
+        const treeQuery = query(collection(db, 'treeProfiles'), where('user_id', '==', s.id), firestoreLimit(1));
+        return getDocs(treeQuery);
+      })
     );
     const treeProfiles = treeProfilesData.map((snap: any) => snap.empty ? null : snap.docs[0].data());
 
@@ -41,9 +47,11 @@ export async function GET(request: Request) {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 3. 해당 클래스의 모든 인증(Certification) 내역 조회 후 in-memory 필터 (인덱스 오류 회피)
-    const certsSnapshot = await adminDb.collection('certifications')
-      .where('class_code', '==', class_id)
-      .get();
+    const certsQuery = query(
+      collection(db, 'certifications'),
+      where('class_code', '==', class_id)
+    );
+    const certsSnapshot = await getDocs(certsQuery);
 
     const allCertifications = certsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as any));
     const todayCertifications = allCertifications.filter((c: any) => {
